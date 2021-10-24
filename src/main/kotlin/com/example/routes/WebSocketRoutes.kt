@@ -8,6 +8,7 @@ import com.example.other.Constants.TYPE_ANNOUNCEMENT
 import com.example.other.Constants.TYPE_CHAT_MESSAGE
 import com.example.other.Constants.TYPE_CHOSEN_WORD
 import com.example.other.Constants.TYPE_DRAW_DATA
+import com.example.other.Constants.TYPE_GAME_STATE
 import com.example.other.Constants.TYPE_JOIN_ROOM_HANDSHAKE
 import com.example.other.Constants.TYPE_PHASE_CHANGE
 import com.example.server
@@ -55,6 +56,10 @@ fun Route.gameWebSocketRoute() {
                     room.setWordAndSwitchToGameRunning(payload.chosenWord)
                 }
                 is ChatMessage -> {
+                    val room = server.rooms[payload.roomName] ?: return@standardWebSocket
+                    if (!room.checkWordAndNotifyPlayers(payload)){ // if the guess wasn't the answer, we broadcast it to the players.
+                        room.broadcast(message)
+                    }
 
                 }
             }
@@ -90,6 +95,7 @@ fun Route.standardWebSocket(
                         TYPE_JOIN_ROOM_HANDSHAKE -> JoinedRoomHandshake::class.java
                         TYPE_PHASE_CHANGE -> PhaseChange::class.java
                         TYPE_CHOSEN_WORD -> ChosenWord::class.java
+                        TYPE_GAME_STATE -> GameState::class.java
                         else -> BaseModel::class.java
                     }
                     val payload = gson.fromJson(message, type)
@@ -101,6 +107,12 @@ fun Route.standardWebSocket(
             e.printStackTrace()
         } finally {
             // Handle disconnects
+            val playerWithClientId = server.getRoomWithClientId(session.clientId)?.players?.find{
+                it.clientId == session.clientId
+            }
+            if (playerWithClientId != null){
+                server.playerLeft(session.clientId)
+            }
         }
 
     }
