@@ -13,4 +13,8 @@ object Constants {
     const val TYPE_GAME_STATE = "TYPE_GAME_STATE"
     const val TYPE_NEW_WORDS = "TYPE_NEW_WORDS"
     const val TYPE_PLAYERS_LIST = "TYPE_PLAYERS_LIST"
+    const val TYPE_PING = "TYPE_PING"
+    const val TYPE_DISCONNECT_REQUEST = "TYPE_DISCONNECT_REQUEST"
+
+    const val PING_FREQUENCY = 3000L
 }
