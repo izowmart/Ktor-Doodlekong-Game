@@ -7,6 +7,8 @@ import com.example.models.*
 import com.example.other.Constants.TYPE_ANNOUNCEMENT
 import com.example.other.Constants.TYPE_CHAT_MESSAGE
 import com.example.other.Constants.TYPE_CHOSEN_WORD
+import com.example.other.Constants.TYPE_DISCONNECT_REQUEST
+import com.example.other.Constants.TYPE_DRAW_ACTION
 import com.example.other.Constants.TYPE_DRAW_DATA
 import com.example.other.Constants.TYPE_GAME_STATE
 import com.example.other.Constants.TYPE_JOIN_ROOM_HANDSHAKE
@@ -15,12 +17,10 @@ import com.example.other.Constants.TYPE_PING
 import com.example.server
 import com.example.session.DrawingSession
 import com.google.gson.JsonParser
-import io.ktor.http.cio.ConnectionOptions.Companion.Close
 import io.ktor.http.cio.websocket.*
 import io.ktor.routing.*
 import io.ktor.sessions.*
 import io.ktor.websocket.*
-import kotlinx.coroutines.channels.consume
 import kotlinx.coroutines.channels.consumeEach
 import java.lang.Exception
 
@@ -54,7 +54,13 @@ fun Route.gameWebSocketRoute() {
                     val room = server.rooms[payload.roomName] ?: return@standardWebSocket
                     if (room.phase == Room.Phase.GAME_RUNNING) {
                         room.broadcastToAllExcept(message, clientId)
+                        room.addSerializedDrawInfo(message)
                     }
+                }
+                is DrawAction -> {
+                    val room = server.getRoomWithClientId(clientId) ?: return@standardWebSocket
+                    room.broadcastToAllExcept(message, clientId)
+                    room.addSerializedDrawInfo(message)
                 }
                 is ChosenWord -> {
                     val room = server.rooms[payload.roomName] ?: return@standardWebSocket
@@ -65,7 +71,6 @@ fun Route.gameWebSocketRoute() {
                     if (!room.checkWordAndNotifyPlayers(payload)){ // if the guess wasn't the answer, we broadcast it to the players.
                         room.broadcast(message)
                     }
-
                 }
                 is Ping ->{
                     server.players[clientId]?.receivedPong()
@@ -108,6 +113,8 @@ fun Route.standardWebSocket(
                         TYPE_CHOSEN_WORD -> ChosenWord::class.java
                         TYPE_GAME_STATE -> GameState::class.java
                         TYPE_PING -> Ping::class.java
+                        TYPE_DISCONNECT_REQUEST -> DisconnectRequest::class.java
+                        TYPE_DRAW_ACTION -> DrawAction::class.java
                         else -> BaseModel::class.java
                     }
                     val payload = gson.fromJson(message, type)

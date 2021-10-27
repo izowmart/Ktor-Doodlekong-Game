@@ -29,6 +29,8 @@ class Room(
     private var playerRemoveJobs = ConcurrentHashMap<String, Job>()
     private var leftPlayers = ConcurrentHashMap<String, Pair<Player, Int>>()
 
+    private var curRoundDrawData: List<String> = listOf()
+
     private var phaseChangedListener: ((Phase) -> Unit)? = null
     var phase = Phase.WAITING_FOR_PLAYERS
         set(value) {
@@ -54,6 +56,16 @@ class Room(
                 Phase.SHOW_WORD -> showWord()
             }
         }
+    }
+
+    private suspend fun sendCurRoundDrawInfoToPlayer(player: Player){
+        if(phase == Phase.GAME_RUNNING || phase == Phase.SHOW_WORD){
+            player.socket.send(Frame.Text(gson.toJson(RoundDrawInfo(curRoundDrawData))))
+        }
+    }
+
+    fun addSerializedDrawInfo(drawAction: String){
+        curRoundDrawData = curRoundDrawData + drawAction
     }
 
     suspend fun addPlayer(clientId: String,username: String,socket:WebSocketSession): Player{
@@ -100,6 +112,7 @@ class Room(
         )
         sendWordToPlayer(player)
         broadcastPlayerState()
+        sendCurRoundDrawInfoToPlayer(player)
         broadcast(gson.toJson(announcement))
         return player
     }
@@ -217,6 +230,7 @@ class Room(
     }
 
     private fun newRound() {
+        curRoundDrawData = listOf()
         curWords = getRandomWords(3)
         val newWords = NewWords(curWords!!)
         nextDrawingPlayer()
