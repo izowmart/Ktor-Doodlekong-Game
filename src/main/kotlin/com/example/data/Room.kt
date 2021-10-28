@@ -30,6 +30,7 @@ class Room(
     private var leftPlayers = ConcurrentHashMap<String, Pair<Player, Int>>()
 
     private var curRoundDrawData: List<String> = listOf()
+    var lastDrawData: DrawData? = null
 
     private var phaseChangedListener: ((Phase) -> Unit)? = null
     var phase = Phase.WAITING_FOR_PLAYERS
@@ -66,6 +67,15 @@ class Room(
 
     fun addSerializedDrawInfo(drawAction: String){
         curRoundDrawData = curRoundDrawData + drawAction
+    }
+
+    private suspend fun finishOfDrawing(){
+        lastDrawData?.let {
+            if (curRoundDrawData.isNotEmpty() && it.motionEvent == 2){
+                val finishDrawData = it.copy(motionEvent = 1) // motionEvent 1 = action up and 2 = action down/drawing
+                broadcast(gson.toJson(finishDrawData))
+            }
+        }
     }
 
     suspend fun addPlayer(clientId: String,username: String,socket:WebSocketSession): Player{
@@ -170,9 +180,15 @@ class Room(
             }
             phase = when(phase){
                 Phase.WAITING_FOR_START -> Phase.NEW_ROUND
-                Phase.GAME_RUNNING -> Phase.SHOW_WORD
+                Phase.GAME_RUNNING -> {
+                    finishOfDrawing()
+                    Phase.SHOW_WORD
+                }
                 Phase.SHOW_WORD -> Phase.NEW_ROUND
-                Phase.NEW_ROUND -> Phase.GAME_RUNNING
+                Phase.NEW_ROUND -> {
+                    word = null
+                    Phase.GAME_RUNNING
+                }
                 else -> Phase.WAITING_FOR_PLAYERS
             }
         }
