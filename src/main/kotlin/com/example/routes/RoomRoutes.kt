@@ -28,6 +28,13 @@ fun Route.createRoomRoute() {
                 )
                 return@post
             }
+            if (roomRequest.maxPlayers < 2){
+                call.respond(
+                    HttpStatusCode.OK,
+                    BasicApiResponse(false, "The min room size is 2")
+                )
+                return@post
+            }
             if (roomRequest.maxPlayers > MAX_ROOM_SIZE){
                 call.respond(
                     HttpStatusCode.OK,
